@@ -10,7 +10,7 @@
 
                 <ul class="ml-0 pl-4 pb-0 mb-4 mt-4">
                     <li>Process activities that ended up to {{ maxDays }} days ago{{ !user.isPro ? ` (PRO users gets up to ${store.proPlanDetails.batchDays} days).` : "." }}</li>
-                    <li>Weather tags might not be available for activities older than 1 week (depends on location).</li>
+                    <li>Older activities get historical weather data, but the air quality index is only available for the last 3 months.</li>
                     <li>Activities are processed in small batches, and can take a few hours to complete.</li>
                     <li>Only 1 batch sync operation can be triggered every 24 hours.</li>
                 </ul>
