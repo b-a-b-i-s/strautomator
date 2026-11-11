@@ -280,7 +280,9 @@ export class Weather {
 
             while (!result.aqi && aqiProviders.length > 0) {
                 try {
+                    // Remove the sampled provider so each one is tried only once.
                     providerModule = _.sample(aqiProviders)
+                    _.pull(aqiProviders, providerModule)
                     result.aqi = await providerModule.getAirQuality(options.user, options.coordinates, options.dDate, options.roundTo)
                 } catch (aqiEx) {
                     if (aqiProviders.length > 0) {
