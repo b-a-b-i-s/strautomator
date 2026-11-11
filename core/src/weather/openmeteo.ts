@@ -10,7 +10,8 @@ import dayjs from "../dayjs"
 const settings = require("setmeup").settings
 
 /**
- * Open-Meteo weather API. Supports up to 2 past days.
+ * Open-Meteo weather API. Uses the forecast API for the last 90 days,
+ * and the historical (archive) API for older dates.
  */
 export class OpenMeteo implements WeatherProvider {
     private constructor() {}
@@ -23,8 +24,10 @@ export class OpenMeteo implements WeatherProvider {
 
     name: string = "openmeteo"
     title: string = "Open-Meteo"
-    hoursPast: number = 2160
+    hoursPast: number = 87600
     hoursFuture: number = 160
+    // How far back the forecast and air quality APIs can go (older dates use the archive API).
+    hoursPastForecast: number = 2160
 
     // METHODS
     // --------------------------------------------------------------------------
@@ -48,11 +51,18 @@ export class OpenMeteo implements WeatherProvider {
         try {
             if (diffHours > maxHours) throw new Error(`Date out of range: ${isoDate}`)
 
-            const baseUrl = settings.weather.openmeteo.baseUrl
             const dateFormat = utcDate.format("YYYY-MM-DD")
-            const daysQuery = isFuture ? `start_date=${dateFormat}&end_date=${dateFormat}` : `past_days=${utcNow.dayOfYear() - utcNow.subtract(diffHours, "hours").dayOfYear()}`
-            const currentQuery = diffHours < 1 ? "&current=temperature_2m,relative_humidity_2m,apparent_temperature,precipitation,weather_code,cloud_cover,wind_speed_10m,wind_direction_10m,wind_gusts_10m" : ""
-            const weatherUrl = `${baseUrl}?latitude=${coordinates[0]}&longitude=${coordinates[1]}&${daysQuery}&wind_speed_unit=ms&hourly=temperature_2m,relative_humidity_2m,dew_point_2m,apparent_temperature,precipitation_probability,precipitation,weather_code,surface_pressure,cloud_cover,visibility,wind_speed_10m,wind_direction_10m,wind_gusts_10m${currentQuery}`
+            const daysQuery = `start_date=${dateFormat}&end_date=${dateFormat}`
+            const baseQuery = `latitude=${coordinates[0]}&longitude=${coordinates[1]}&${daysQuery}&wind_speed_unit=ms`
+            let weatherUrl: string
+
+            // Older dates use the archive API, which does not support precipitation probability and visibility.
+            if (!isFuture && diffHours > this.hoursPastForecast) {
+                weatherUrl = `${settings.weather.openmeteo.archiveBaseUrl}?${baseQuery}&hourly=temperature_2m,relative_humidity_2m,dew_point_2m,apparent_temperature,precipitation,weather_code,surface_pressure,cloud_cover,wind_speed_10m,wind_direction_10m,wind_gusts_10m`
+            } else {
+                const currentQuery = diffHours < 1 ? "&current=temperature_2m,relative_humidity_2m,apparent_temperature,precipitation,weather_code,cloud_cover,wind_speed_10m,wind_direction_10m,wind_gusts_10m" : ""
+                weatherUrl = `${settings.weather.openmeteo.baseUrl}?${baseQuery}&hourly=temperature_2m,relative_humidity_2m,dew_point_2m,apparent_temperature,precipitation_probability,precipitation,weather_code,surface_pressure,cloud_cover,visibility,wind_speed_10m,wind_direction_10m,wind_gusts_10m${currentQuery}`
+            }
 
             // Fetch weather data.
             logger.debug("OpenMeteo.getWeather", weatherUrl)
@@ -82,13 +92,14 @@ export class OpenMeteo implements WeatherProvider {
         const utcNow = dayjs.utc()
         const diffHours = Math.abs(utcNow.diff(utcDate, "hours"))
         const isFuture = utcNow.isBefore(utcDate)
-        const maxHours = isFuture ? this.hoursFuture : this.hoursPast
+        const maxHours = isFuture ? this.hoursFuture : this.hoursPastForecast
 
         try {
             if (diffHours > maxHours) throw new Error(`Date out of range: ${isoDate}`)
 
             const baseUrl = settings.weather.openmeteo.aqiBaseUrl
-            const daysQuery = isFuture ? "forecast_days=7" : `past_days=${utcNow.dayOfYear() - utcNow.subtract(diffHours, "hours").dayOfYear()}`
+            const dateFormat = utcDate.format("YYYY-MM-DD")
+            const daysQuery = isFuture ? "forecast_days=7" : `start_date=${dateFormat}&end_date=${dateFormat}`
             const aqiUrl = `${baseUrl}?latitude=${coordinates[0]}&longitude=${coordinates[1]}&${daysQuery}&current=european_aqi,us_aqi&hourly=european_aqi,us_aqi`
 
             // Fetch air quality data.

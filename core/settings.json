@@ -784,6 +784,7 @@
         "openmeteo": {
             "baseUrl": "https://api.open-meteo.com/v1/forecast",
             "aqiBaseUrl": "https://air-quality-api.open-meteo.com/v1/air-quality",
+            "archiveBaseUrl": "https://archive-api.open-meteo.com/v1/archive",
             // Open-Meteo API rate limits.
             "rateLimit": {
                 "maxConcurrent": 3,
